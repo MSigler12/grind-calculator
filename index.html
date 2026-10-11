@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Fat-to-meat grind calculator: how much fat to add, salt and cure by weight, and package counts.">
+<meta name="theme-color" content="#1c2a26">
+<title>Sigler Grind Calculator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+[hidden]{display:none!important}
+html{color-scheme:light}
+/* Layout: one column, phone-first. Inputs stacked on top; the breakdown is a dark "cold-room" panel with big numbers; seasoning and packaging as supporting rows beneath. */
+:root{
+  --bg:#efeae2;         /* butcher paper */
+  --surface:#ffffff;
+  --fg:#1f1d1a;
+  --muted:#6b645a;
+  --line:#d8d0c3;
+  --panel:#1c2a26;      /* cold-room green-black */
+  --panel-fg:#f3efe8;
+  --panel-muted:#9fb0a9;
+  --accent:#8c2f1f;     /* oxblood */
+  --accent-fg:#ffffff;
+  --fat:#e3b26a;        /* fat cap */
+  --meat:#a33a2b;
+  --warn:#b5541b;
+  --display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15191a; --surface:#1f2425; --fg:#ece7de; --muted:#a39b8f; --line:#333b3c;
+    --panel:#0f1716; --panel-fg:#f3efe8; --panel-muted:#8fa39b;
+    --accent:#c9503a; --accent-fg:#ffffff; --fat:#e3b26a; --meat:#c4493a; --warn:#e2863f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15191a; --surface:#1f2425; --fg:#ece7de; --muted:#a39b8f; --line:#333b3c;
+  --panel:#0f1716; --panel-fg:#f3efe8; --panel-muted:#8fa39b;
+  --accent:#c9503a; --accent-fg:#ffffff; --fat:#e3b26a; --meat:#c4493a; --warn:#e2863f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;margin:0}
+.wrap{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:grid;gap:20px}
+header{display:grid;gap:4px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(40px,10vw,56px);line-height:.95;letter-spacing:.01em;margin:0;text-transform:uppercase;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:15px;margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:grid;gap:14px}
+.label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:inherit;font-weight:500;font-size:14px;padding:8px 12px;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:4px;cursor:pointer;min-width:0}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.seg button:focus-visible,input:focus-visible,select:focus-visible,.btn:focus-visible{outline:3px solid var(--fat);outline-offset:2px}
+.ratio{display:grid;gap:8px}
+.ratio-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.ratio-num{font-family:var(--display);font-weight:900;font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
+.ratio-num small{font-size:24px;color:var(--muted);font-weight:700}
+input[type=range]{width:100%;accent-color:var(--accent);margin:0}
+.ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.field{display:grid;gap:6px;min-width:0}
+.inputrow{display:flex;gap:8px;align-items:stretch}
+input[type=number]{font:inherit;font-family:var(--mono);font-size:22px;font-weight:600;padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);width:100%;min-width:0}
+input[type=number].sm{font-size:16px;padding:8px 10px}
+select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
+.adv summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--fg);list-style:none;display:flex;align-items:center;gap:8px}
+.adv summary::before{content:"";width:0;height:0;border:5px solid transparent;border-left:7px solid var(--muted);transition:transform .15s}
+.adv[open] summary::before{transform:rotate(90deg)}
+.adv .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.panel{background:var(--panel);color:var(--panel-fg);border-radius:6px;padding:18px 16px;display:grid;gap:16px}
+.panel .label{color:var(--panel-muted)}
+.bar{height:14px;border-radius:3px;overflow:hidden;display:flex;background:#000}
+.bar i{display:block;height:100%}
+.bar .m{background:var(--meat)}
+.bar .f{background:var(--fat)}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--panel-muted)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.big{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.stat{display:grid;gap:2px;min-width:0}
+.stat .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--panel-muted)}
+.stat .v{font-family:var(--display);font-weight:700;font-size:clamp(28px,8vw,40px);line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v.add{color:var(--fat)}
+.stat .s{font-family:var(--mono);font-size:12px;color:var(--panel-muted);white-space:nowrap}
+.callout{border-left:3px solid var(--fat);padding-left:12px;font-size:15px}
+.callout strong{color:var(--fat)}
+.msg{color:var(--warn);font-size:14px;font-weight:500;margin:0}
+.msg:empty{display:none}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:8px 0;border-top:1px solid var(--line);vertical-align:top}
+td:last-child{text-align:right;font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:first-child td{border-top:0}
+td .n{display:block;font-size:12px;color:var(--muted);font-weight:400;font-family:var(--body)}
+.btn{font:inherit;font-weight:600;font-size:15px;padding:12px 16px;border:0;border-radius:4px;background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+.foot{font-size:13px;color:var(--muted);display:grid;gap:6px}
+.foot p{margin:0}
+label.chk{display:flex;gap:8px;align-items:center;font-size:15px}
+@media (max-width:420px){.big{grid-template-columns:1fr 1fr}.big .stat:first-child{grid-column:1/-1}.adv .grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Grind <span>Calculator</span></h1>
+    <p class="sub">Fat-to-meat ratio, how much fat to add, salt and cure by weight, and how many packages you'll get.</p>
+  </header>
+
+  <section class="card" aria-labelledby="l-ratio">
+    <div class="label" id="l-ratio">Target fat ratio</div>
+    <div class="seg" id="presets" role="group" aria-label="Presets">
+      <button type="button" data-r="10">Lean grind 10%</button>
+      <button type="button" data-r="15">Lean burger 15%</button>
+      <button type="button" data-r="20" aria-pressed="true">Classic burger 20%</button>
+      <button type="button" data-r="25">Fresh sausage 25%</button>
+      <button type="button" data-r="30">Smoked sausage 30%</button>
+    </div>
+    <div class="ratio">
+      <div class="ratio-top">
+        <div class="ratio-num"><span id="ratioOut">20</span><small>% fat</small></div>
+        <div class="hint" id="ratioWords">4 parts meat : 1 part fat</div>
+      </div>
+      <input type="range" id="ratio" min="0" max="50" step="1" value="20" aria-label="Fat percentage of finished grind">
+      <div class="ticks"><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="l-know">
+    <div class="label" id="l-know">I know my…</div>
+    <div class="seg" id="modes" role="group" aria-label="Known quantity">
+      <button type="button" data-m="meat" aria-pressed="true">Meat weight</button>
+      <button type="button" data-m="fat">Fat weight</button>
+      <button type="button" data-m="total">Finished total</button>
+    </div>
+    <div class="field">
+      <div class="inputrow">
+        <input type="number" id="qty" inputmode="decimal" min="0" step="any" value="25" aria-label="Known weight">
+        <select id="unit" aria-label="Unit">
+          <option value="lb" selected>lb</option>
+          <option value="oz">oz</option>
+          <option value="kg">kg</option>
+          <option value="g">g</option>
+        </select>
+      </div>
+      <p class="hint" id="modeHint">Trimmed lean you're starting with.</p>
+    </div>
+    <details class="adv">
+      <summary>Account for fat already in the meat and your fat source</summary>
+      <div class="grid">
+        <div class="field">
+          <div class="label">Fat in the lean, %</div>
+          <input type="number" id="leanFat" class="sm" inputmode="decimal" min="0" max="49" step="0.5" value="0">
+          <p class="hint">Well-trimmed venison ≈ 2–5. Leave 0 to match the simple calculator.</p>
+        </div>
+        <div class="field">
+          <div class="label">Fat in your fat source, %</div>
+          <input type="number" id="srcFat" class="sm" inputmode="decimal" min="1" max="100" step="1" value="100">
+          <p class="hint">Pork fatback ≈ 90. Pork shoulder ≈ 25–30. Beef trim varies; 100 = pure fat.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="l-break">
+    <div class="label" id="l-break">Your grind breakdown</div>
+    <div class="bar" aria-hidden="true"><i class="m" id="barM" style="width:80%"></i><i class="f" id="barF" style="width:20%"></i></div>
+    <div class="legend"><span><b style="background:var(--meat)"></b>Meat</span><span><b style="background:var(--fat)"></b>Fat</span></div>
+    <div class="big">
+      <div class="stat"><div class="k">Finished grind</div><div class="v" id="oTotal">31.25 lb</div><div class="s" id="sTotal">31 lb 4 oz</div></div>
+      <div class="stat"><div class="k">Meat</div><div class="v" id="oMeat">25 lb</div><div class="s" id="sMeat">25 lb 0 oz</div></div>
+      <div class="stat"><div class="k">Fat to add</div><div class="v add" id="oFat">6.25 lb</div><div class="s" id="sFat">6 lb 4 oz</div></div>
+    </div>
+    <div class="callout" id="callout">Add <strong>6 lb 4 oz</strong> of fat to <strong>25 lb</strong> of meat for a <strong>20%</strong> grind.</div>
+    <p class="msg" id="msg"></p>
+  </section>
+
+  <section class="card" aria-labelledby="l-season">
+    <div class="label" id="l-season">Salt &amp; cure (on finished weight)</div>
+    <div class="row">
+      <div class="field" style="flex:1 1 140px">
+        <div class="label">Salt, % of weight</div>
+        <input type="number" id="saltPct" class="sm" inputmode="decimal" min="0" max="5" step="0.05" value="1.75">
+      </div>
+      <label class="chk" style="flex:1 1 180px"><input type="checkbox" id="cure"> Add Cure #1 (pink salt) at 0.25%</label>
+    </div>
+    <table>
+      <tr><td>Salt<span class="n">Weigh it. Volume varies by brand: kosher runs 3–5 g per tsp.</span></td><td id="oSalt">—</td></tr>
+      <tr id="cureRow" hidden><td>Cure #1 (6.25% sodium nitrite)<span class="n">Standard dose: 1 level tsp per 5 lb of meat. Never substitute Cure #2 or use for fresh sausage you'll eat right away.</span></td><td id="oCure">—</td></tr>
+    </table>
+    <p class="hint">1.5% is a light hand, 2% is a full-strength fresh sausage. Burger is usually salted at the pan instead.</p>
+  </section>
+
+  <section class="card" aria-labelledby="l-pack">
+    <div class="label" id="l-pack">Packaging</div>
+    <div class="row">
+      <div class="field" style="flex:1 1 140px">
+        <div class="label">Package size</div>
+        <div class="inputrow">
+          <input type="number" id="pkg" class="sm" inputmode="decimal" min="0" step="any" value="1">
+          <select id="pkgUnit" aria-label="Package unit">
+            <option value="lb" selected>lb</option><option value="oz">oz</option><option value="kg">kg</option><option value="g">g</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="flex:1 1 140px">
+        <div class="label">You'll get</div>
+        <div class="ratio-num" style="font-size:40px"><span id="oPkgs">31</span><small id="oPkgRem"> + 4 oz over</small></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="row">
+    <button type="button" class="btn" id="copy">Copy this batch</button>
+    <button type="button" class="btn ghost" id="reset">Reset</button>
+    <span class="hint" id="copied" aria-live="polite"></span>
+  </div>
+
+  <div class="foot">
+    <p>Ratio presets are starting points, not gospel. Set the slider wherever your recipe calls for. Fat % is fat as a share of the finished grind, the same way the store labels "80/20".</p>
+    <p>Salt and cure percentages are the common home-processing standards (Cure #1 at 0.25% ≈ 2.5 g per kg ≈ 1 tsp per 5 lb). Follow your recipe if it differs.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const G={lb:453.59237, oz:28.349523125, kg:1000, g:1};
+  const $=id=>document.getElementById(id);
+  const el={ratio:$('ratio'),ratioOut:$('ratioOut'),ratioWords:$('ratioWords'),qty:$('qty'),unit:$('unit'),
+    leanFat:$('leanFat'),srcFat:$('srcFat'),saltPct:$('saltPct'),cure:$('cure'),pkg:$('pkg'),pkgUnit:$('pkgUnit'),msg:$('msg')};
+  let mode='meat';
+  const hints={meat:"Trimmed lean you're starting with.",fat:"Fat you have on hand; we'll tell you how much meat it will carry.",total:"How much finished grind you want to end up with."};
+
+  function fmt(g,u){
+    const v=g/G[u];
+    const d = u==='g' ? 0 : (v>=100?1:2);
+    return trim(v.toFixed(d))+' '+u;
+  }
+  function trim(s){return s.includes('.')?s.replace(/\.?0+$/,''):s;}
+  function lbOz(g){
+    if(g<0)g=0;
+    const totalOz=g/G.oz; let lb=Math.floor(totalOz/16); let oz=Math.round((totalOz-lb*16)*10)/10;
+    if(oz>=16){lb+=1;oz=0;}
+    return lb+' lb '+trim(oz.toFixed(1))+' oz';
+  }
+  function sub(g,u){ return (u==='lb'||u==='oz') ? lbOz(g) : trim((g).toFixed(0))+' g'; }
+  function gramsTsp(g,gPerTsp){ const t=g/gPerTsp; return trim(g.toFixed(1))+' g  ≈ '+trim(t.toFixed(t<3?2:1))+' tsp'; }
+
+  function calc(){
+    const r=(+el.ratio.value)/100, u=el.unit.value;
+    const q=Math.max(0,+el.qty.value||0)*G[u];
+    const a=Math.min(0.49,Math.max(0,(+el.leanFat.value||0)/100));
+    const p=Math.min(1,Math.max(0.01,(+el.srcFat.value||100)/100));
+    let M=0,F=0,T=0,warn='';
+    if(r<=a){ warn='Your lean already carries '+(a*100)+'% fat, which is at or above the target. No fat to add.'; }
+    if(p<=r){ warn='Your fat source is only '+(p*100)+'% fat; it can\'t reach a '+(r*100)+'% blend. Use a fattier source or lower the target.'; }
+    if(!warn){
+      if(mode==='meat'){ M=q; F=M*(r-a)/(p-r); }
+      else if(mode==='fat'){ F=q; M=(r-a)>0 ? F*(p-r)/(r-a) : 0; if(r-a<=0)warn='With a 0% target there is no fat to add.'; }
+      else { T=q; F=T*(r-a)/(p-a); M=T-F; }
+      T=M+F;
+    } else if(mode==='meat'){ M=q;T=q; }
+    el.msg.textContent=warn;
+    const actualFat = T>0 ? (M*a+F*p)/T : 0;
+
+    $('oTotal').textContent=fmt(T,u); $('sTotal').textContent=sub(T,u);
+    $('oMeat').textContent=fmt(M,u);  $('sMeat').textContent=sub(M,u);
+    $('oFat').textContent=fmt(F,u);   $('sFat').textContent=sub(F,u);
+    const pctM = T>0 ? (M/T*100) : 100;
+    $('barM').style.width=pctM+'%'; $('barF').style.width=(100-pctM)+'%';
+
+    const fatStr = (u==='lb'||u==='oz') ? lbOz(F) : fmt(F,u);
+    const meatStr = (u==='lb'||u==='oz') ? lbOz(M) : fmt(M,u);
+    let c='Add <strong>'+fatStr+'</strong> of fat to <strong>'+meatStr+'</strong> of meat for a <strong>'+Math.round(actualFat*100)+'%</strong> grind';
+    if(mode==='total') c+=' weighing <strong>'+fmt(T,u)+'</strong>';
+    if(a>0||p<1) c+=' (true fat content, counting what\'s already in the lean)';
+    $('callout').innerHTML=c+'.';
+
+    // seasoning on finished weight
+    const sp=Math.max(0,+el.saltPct.value||0)/100;
+    $('oSalt').textContent = T>0 ? gramsTsp(T*sp,5.7) : '—';
+    $('cureRow').hidden=!el.cure.checked;
+    $('oCure').textContent = T>0 ? gramsTsp(T*0.0025,5.67) : '—';
+
+    // packaging
+    const pu=el.pkgUnit.value, ps=Math.max(0,+el.pkg.value||0)*G[pu];
+    if(ps>0&&T>0){ const n=Math.floor(T/ps+1e-9); const rem=T-n*ps;
+      $('oPkgs').textContent=n; $('oPkgRem').textContent= rem>0.5 ? ' + '+((pu==='lb'||pu==='oz')?lbOz(rem):fmt(rem,pu))+' over' : '';
+    } else { $('oPkgs').textContent='—'; $('oPkgRem').textContent=''; }
+
+    el.ratioOut.textContent=Math.round(r*100);
+    el.ratioWords.textContent = r>0 ? (ratioWords(r)) : 'no added fat';
+    document.querySelectorAll('#presets button').forEach(b=>b.setAttribute('aria-pressed', String(+b.dataset.r===Math.round(r*100))));
+    try{localStorage.setItem('grind',JSON.stringify({r:el.ratio.value,mode,q:el.qty.value,u,a:el.leanFat.value,p:el.srcFat.value,sp:el.saltPct.value,cure:el.cure.checked,pkg:el.pkg.value,pu}));}catch(e){}
+  }
+  function ratioWords(r){
+    const lean=Math.round((1-r)*100), fat=Math.round(r*100);
+    const parts = fat>0 ? (lean/fat) : 0;
+    const nice = Math.abs(parts-Math.round(parts))<0.05 ? Math.round(parts)+' parts meat : 1 part fat' : trim(parts.toFixed(1))+' parts meat : 1 part fat';
+    return lean+'/'+fat+'  ·  '+nice;
+  }
+  function setMode(m){ mode=m; document.querySelectorAll('#modes button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===m))); $('modeHint').textContent=hints[m]; calc(); }
+
+  document.querySelectorAll('#presets button').forEach(b=>b.addEventListener('click',()=>{el.ratio.value=b.dataset.r;calc();}));
+  document.querySelectorAll('#modes button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.m)));
+  ['ratio','qty','unit','leanFat','srcFat','saltPct','cure','pkg','pkgUnit'].forEach(id=>{ el[id].addEventListener('input',calc); el[id].addEventListener('change',calc); });
+
+  $('reset').addEventListener('click',()=>{ el.ratio.value=20; el.qty.value=25; el.unit.value='lb'; el.leanFat.value=0; el.srcFat.value=100; el.saltPct.value=1.75; el.cure.checked=false; el.pkg.value=1; el.pkgUnit.value='lb'; setMode('meat'); });
+
+  $('copy').addEventListener('click',()=>{
+    const lines=['GRIND BATCH — '+el.ratioOut.textContent+'% fat',
+      'Meat: '+$('oMeat').textContent+' ('+$('sMeat').textContent+')',
+      'Fat to add: '+$('oFat').textContent+' ('+$('sFat').textContent+')',
+      'Finished: '+$('oTotal').textContent+' ('+$('sTotal').textContent+')',
+      'Salt '+el.saltPct.value+'%: '+$('oSalt').textContent];
+    if(el.cure.checked) lines.push('Cure #1 0.25%: '+$('oCure').textContent);
+    if($('oPkgs').textContent!=='—') lines.push('Packages @ '+el.pkg.value+' '+el.pkgUnit.value+': '+$('oPkgs').textContent+$('oPkgRem').textContent);
+    const text=lines.join('\n'); const note=$('copied');
+    const done=()=>{note.textContent='Copied.'; setTimeout(()=>note.textContent='',2000);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(()=>fallback(text,done)); } else fallback(text,done);
+  });
+  function fallback(text,done){ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');done();}catch(e){} ta.remove(); }
+
+  try{ const s=JSON.parse(localStorage.getItem('grind')||'null'); if(s){ el.ratio.value=s.r; el.qty.value=s.q; el.unit.value=s.u; el.leanFat.value=s.a; el.srcFat.value=s.p; el.saltPct.value=s.sp; el.cure.checked=!!s.cure; el.pkg.value=s.pkg; el.pkgUnit.value=s.pu; mode=s.mode||'meat'; } }catch(e){}
+  setMode(mode);
+})();
+</script>
+</body>
+</html>
